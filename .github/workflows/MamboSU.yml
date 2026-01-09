@@ -1,4 +1,4 @@
-name: BoltX Kernel MamboSU
+name: BoltX Kernel MamboSU3
 
 on:
   workflow_dispatch:
@@ -129,7 +129,7 @@ jobs:
         run: |
           echo "🧩 Setup MamboSU (Rissu)"
           
-          # 1. Remove existing KernelSU drivers (Alur Asli)
+          # 1. Remove existing KernelSU drivers
           for KSU_PATH in drivers/staging/kernelsu drivers/kernelsu KernelSU; do
             if [ -d $KSU_PATH ]; then
               echo "MamboSU driver found in $KSU_PATH, Removing..."
@@ -141,18 +141,18 @@ jobs:
           done
           echo "✅ Existing MamboSU drivers removed"
           
-          # 2. Setup KernelSU sesuai perintah setup.sh yang Anda berikan
+          # 2. Setup KernelSU method
           HOOK_METHOD="${{ github.event.inputs.hook_method }}"
           
           if [ "$HOOK_METHOD" = "susfs" ]; then
              echo "➡️ Mode: SuSFS (Using rsuntk/KernelSU setup -> branch susfs-rksu-master)"
              curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash -s susfs-rksu-master
           else
-             echo "➡️ Mode: Kprobes/Rissu (Using Rsuntk/KernelSU setup -> branch master)"
-             curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash -s v3.0.0-30-legacy
+             echo "➡️ Mode: Kprobes/Rissu (Using RapliVx/KernelSU setup -> branch master)"
+             curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash -s main
           fi
           
-          # 3. Apply Manager Support Patch (Langsung dari URL raw tanpa clone repo)
+          # 3. Apply Manager Support Patch manager MamboSU
           echo "🛠️ Applying MamboSU Manager Support Patch..."
           curl -LSs "https://raw.githubusercontent.com/Kingfinik98/gki-builder/15ddb8c469eab27491d5bb0f8f66b7fe2c15d0d7/kernel-patches/ksu/rksu-add-mambosu-manager-support.patch" -o /tmp/rksu_manager.patch
           cd KernelSU
@@ -160,7 +160,7 @@ jobs:
           cd ..
           echo "✅ Manager Patch Applied"
           
-          # 4. Apply SusFS (Kernel Side) - Versi YAML Lama (Simonpunk)
+          # 4. Apply SusFS (Kernel Side) 
           if [ "$HOOK_METHOD" = "susfs" ]; then
              echo "➡️ Applying SusFS Kernel Patches (Simonpunk)..."
              git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 sus
