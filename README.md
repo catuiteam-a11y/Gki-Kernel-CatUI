@@ -4,6 +4,7 @@ If you fork this repository, please provide proper credit to the original source
 
 Fixing bugs and maintaining this kernel build requires significant time and effort.  
 Do **not** claim that you are the author of the GitHub Actions / YML scripts or this kernel build.
+
 it is forbidden to claim other people's work 
 ### Bug Fixes
 - Fixed and maintained by **@BoltXNext**
@@ -20,7 +21,7 @@ Please respect upstream developers and always give proper credit when forking or
 ### Special Thanks
 - **@iambouttacum** — conceptual inspiration and development references  
 - **@ramabondanp** — conceptual inspiration and development references  
-
+- https://github.com/kaminarich
 ---
 
 ## Maintainer
