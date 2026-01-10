@@ -64,6 +64,7 @@ jobs:
 
       - name: Setup Custom Clang
         working-directory: gki
+        shell: bash
         run: |
           mkdir -p toolchain/clang
           
@@ -112,6 +113,7 @@ jobs:
 
       - name: Configure Kernel
         working-directory: gki/common
+        shell: bash
         run: |
           export PATH="$(pwd)/../toolchain/clang/bin:$PATH"
           export ARCH=arm64
@@ -189,6 +191,10 @@ jobs:
               -e LTO_CLANG_THIN \
               -d LTO_CLANG_FULL \
               -e THINLTO
+
+          # FIX ERROR BTF (pahole not found)
+          # Nonaktifkan BTF agar build tidak gagal karena tool pahole tidak ada
+          scripts/config --file out/.config -d DEBUG_INFO_BTF
               
           echo "🔧 Running olddefconfig..."
           make O=out olddefconfig
