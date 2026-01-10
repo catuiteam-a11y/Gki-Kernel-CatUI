@@ -50,6 +50,8 @@ jobs:
         run: |
           echo "⬇️ Cloning Kernel Source (ramabondanp - Branch: android14-6.1)..."
           mkdir -p gki
+          cd gki
+          git init
           git remote add rama https://github.com/ramabondanp/android_kernel_common-6.1.git
           git fetch -j12 rama
           git checkout -b update-android14-6.1-lazygoogle rama/android14-6.1-lazygoogle
