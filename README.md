@@ -7,7 +7,7 @@ Do **not** claim that you are the author of the GitHub Actions / YML scripts or 
 
 it is forbidden to claim other people's work 
 ### Bug Fixes
-- Fixed and maintained by **@BoltXNext**
+- Fixed and maintained by **[@BoltXNext](https://github.com/Kingfinik98)**
 
 ---
 
