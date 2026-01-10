@@ -19,9 +19,9 @@ it is forbidden to claim other people's work
 Please respect upstream developers and always give proper credit when forking or reusing any source.
 
 ### Special Thanks
-- **@iambouttacum** — conceptual inspiration and development references  
-- **@ramabondanp** — conceptual inspiration and development references  
-- https://github.com/kaminarich
+- **[@iambouttacum](https://github.com/linastorvaldz)** — conceptual inspiration and development references  
+- **@[ramabondanp](https://github.com/ramabondanp)** — conceptual inspiration and development references  
+- **@[kaminarich](https://github.com/kaminarich)** — conceptual inspiration and development references
 ---
 
 ## Maintainer
