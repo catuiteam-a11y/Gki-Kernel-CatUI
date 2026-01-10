@@ -1,4 +1,4 @@
-name: BoltX AIO Master 1
+name: BoltX AIO Master 2
 
 on:
   workflow_dispatch:
