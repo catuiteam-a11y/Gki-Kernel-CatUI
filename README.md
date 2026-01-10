@@ -20,8 +20,8 @@ Please respect upstream developers and always give proper credit when forking or
 
 ### Special Thanks
 - **[@iambouttacum](https://github.com/linastorvaldz)** — conceptual inspiration and development references  
-- **@[ramabondanp](https://github.com/ramabondanp)** — conceptual inspiration and development references  
-- **@[kaminarich](https://github.com/kaminarich)** — conceptual inspiration and development references
+- **[@ramabondanp](https://github.com/ramabondanp)** — conceptual inspiration and development references  
+- **[@kaminarich](https://github.com/kaminarich)** — conceptual inspiration and development references
 ---
 
 ## Maintainer
