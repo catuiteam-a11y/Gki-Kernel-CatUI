@@ -294,8 +294,7 @@ jobs:
           gh release create "$RELEASE_TAG" "${{ env.AK3_ZIP_NAME }}" \
             --title "$RELEASE_TAG" \
             --notes "$RELEASE_NOTES" \
-            --repo "$REPO_PATH" \
-            --latest
+            --repo "$REPO_PATH"
           echo "✅ Release created successfully at https://github.com/$REPO_PATH/releases/tag/$RELEASE_TAG"
 
       - name: Upload Build Log
