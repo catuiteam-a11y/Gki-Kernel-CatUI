@@ -59,6 +59,8 @@ jobs:
           git remote add Kingfinik98 https://github.com/Kingfinik98/android_kernel_common-6.1.git
           git fetch -j12 Kingfinik98
           git checkout -b update-android14-6.1-lazygoogle Kingfinik98/android14-6.1-lazygoogle
+          # delet drivers staging KernelSU
+          rm -rf drivers/staging/kernelsu
 
       - name: Setup Custom Clang
         working-directory: gki
@@ -80,8 +82,6 @@ jobs:
         working-directory: gki/common
         run: |
           echo "Setting up Wild_KSU..."
-           # Setup KernelSU-KowSU
-          rm -rf drivers/staging/kernelsu
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s wild
 
       - name: Patch SuSFS (Manual + Kstat Fix)
