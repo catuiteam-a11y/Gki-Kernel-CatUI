@@ -38,7 +38,7 @@ jobs:
         run: |
           apt update && apt upgrade -y
           apt install -y git curl repo build-essential bc bison flex libssl-dev \
-            libelf-dev python3 python3-pip unzip zip rsync libncurses-dev lld gh
+            libelf-dev python3 python3-pip unzip zip rsync libncurses-dev lld
 
       - name: Configure Git
         run: |
@@ -49,12 +49,21 @@ jobs:
         run: |
           echo "⬇️ Cloning Kernel Source (ramabondanp - Branch: android14-6.1)..."
           mkdir -p gki
-          git clone --depth=1 -b android14-6.1-lazygoogle https://github.com/ramabondanp/android_kernel_common-6.1 gki/common
+          git clone --depth=1 -b android14-6.1 https://github.com/ramabondanp/android_kernel_common-6.1 gki/common
+          
+      - name: Update kernel source for GKI 6.1
+        run: |
+          cd gki/common
+          echo "⬇️ Cloning remote Source (ramabondanp - Branch: android14-6.1-lazygoogle)..."
+          mkdir -p gki
+          git remote add Kingfinik98 https://github.com/Kingfinik98/android_kernel_common-6.1.git
+          git fetch -j12 Kingfinik98
+          git checkout -b update-android14-6.1-lazygoogle Kingfinik98/android14-6.1-lazygoogle
+          # delet drivers staging KernelSU
           rm -rf drivers/staging/kernelsu
 
       - name: Setup Custom Clang
         working-directory: gki
-        shell: bash
         run: |
           mkdir -p toolchain/clang
           
@@ -103,7 +112,6 @@ jobs:
 
       - name: Configure Kernel
         working-directory: gki/common
-        shell: bash
         run: |
           export PATH="$(pwd)/../toolchain/clang/bin:$PATH"
           export ARCH=arm64
@@ -181,10 +189,6 @@ jobs:
               -e LTO_CLANG_THIN \
               -d LTO_CLANG_FULL \
               -e THINLTO
-
-          # FIX ERROR BTF (pahole not found)
-          # Nonaktifkan BTF agar build tidak gagal karena tool pahole tidak ada
-          scripts/config --file out/.config -d DEBUG_INFO_BTF
               
           echo "🔧 Running olddefconfig..."
           make O=out olddefconfig
@@ -284,7 +288,8 @@ jobs:
           gh release create "$RELEASE_TAG" "${{ env.AK3_ZIP_NAME }}" \
             --title "$RELEASE_TAG" \
             --notes "$RELEASE_NOTES" \
-            --repo "$REPO_PATH"
+            --repo "$REPO_PATH" \
+            --latest
           echo "✅ Release created successfully at https://github.com/$REPO_PATH/releases/tag/$RELEASE_TAG"
 
       - name: Upload Build Log
