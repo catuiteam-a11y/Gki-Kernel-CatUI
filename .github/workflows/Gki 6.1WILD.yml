@@ -50,9 +50,9 @@ jobs:
         run: |
           echo "⬇️ Cloning Kernel Source (ramabondanp - Branch: android14-6.1)..."
           mkdir -p gki
-          git remote add rama https://github.com/Kingfinik98/android_kernel_common-6.1.git
-          git fetch -j12 rama
-          git checkout -b update-android14-6.1-lazygoogle rama/android14-6.1-lazygoogle
+          git remote add Kingfinik98 https://github.com/Kingfinik98/android_kernel_common-6.1.git
+          git fetch -j12 Kingfinik98
+          git checkout -b update-android14-6.1-lazygoogle Kingfinik98/android14-6.1-lazygoogle
 
       - name: Setup Custom Clang
         working-directory: gki
