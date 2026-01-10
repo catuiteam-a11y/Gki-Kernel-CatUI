@@ -50,16 +50,6 @@ jobs:
           echo "⬇️ Cloning Kernel Source (ramabondanp - Branch: android14-6.1)..."
           mkdir -p gki
           git clone --depth=1 -b android14-6.1-lazygoogle https://github.com/ramabondanp/android_kernel_common-6.1 gki/common
-          
-#      - name: Update kernel source for GKI 6.1
-#        run: |
-#          cd gki/common
-#          echo "⬇️ Cloning remote Source (ramabondanp - Branch: android14-6.1-lazygoogle)..."
-#          mkdir -p gki
-#          git remote add Kingfinik98 https://github.com/Kingfinik98/android_kernel_common-6.1.git
-#          git fetch -j12 Kingfinik98
-#          git checkout -b update-android14-6.1-lazygoogle Kingfinik98/android14-6.1-lazygoogle
-          # delet drivers staging KernelSU
           rm -rf drivers/staging/kernelsu
 
       - name: Setup Custom Clang
