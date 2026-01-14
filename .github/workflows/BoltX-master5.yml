@@ -73,8 +73,9 @@ jobs:
       - id: set-matrix
         run: |
           if [ "${{ github.event.inputs.build_mode }}" == "All Variants (Next, Rissu, SukiSU, Wild KSU, NonKSU)" ]; then
-            echo "🚀 Mode: ALL VARIANTS BUILD"
-            echo 'matrix=[{"variant":"KernelSU-Next","hook":"susfs"},{"variant":"KernelSU-Next","hook":"kprobes"},{"variant":"Rissu (MamboSU)","hook":"susfs"},{"variant":"Rissu (MamboSU)","hook":"kprobes"},{"variant":"SukiSU","hook":"susfs"},{"variant":"Wild KSU","hook":"susfs"},{"variant":"Wild KSU","hook":"kprobes"},{"variant":"Non-KSU","hook":"none"}]' >> $GITHUB_OUTPUT
+            echo "🚀 Mode: ALL VARIANTS BUILD (Priority: SukiSU First)"
+            # SukiSU dipindahkan ke urutan paling awal agar mendapat prioritas resource
+            echo 'matrix=[{"variant":"SukiSU","hook":"susfs"},{"variant":"KernelSU-Next","hook":"susfs"},{"variant":"KernelSU-Next","hook":"kprobes"},{"variant":"Rissu (MamboSU)","hook":"susfs"},{"variant":"Rissu (MamboSU)","hook":"kprobes"},{"variant":"Wild KSU","hook":"susfs"},{"variant":"Wild KSU","hook":"kprobes"},{"variant":"Non-KSU","hook":"none"}]' >> $GITHUB_OUTPUT
           else
             echo "🚀 Mode: SINGLE VARIANT BUILD"
             echo 'matrix=[{"variant":"${{ github.event.inputs.root_variant }}","hook":"${{ github.event.inputs.hook_method }}"}]' >> $GITHUB_OUTPUT
@@ -368,12 +369,10 @@ jobs:
 
           echo "⚙️ Applying Common Performance & Network Configs..."
           
-          # --- DIHAPUS: Config HZ palsu yang tidak terdeteksi ---
           if [ "$PERF" = "MediaTek" ]; then
             # Config MediaTek spesifik (selain HZ) bisa ditambahkan disini jika ada
             : # no-op
           elif [ "$PERF" = "Universal" ]; then
-            # Menghapus CONFIG_HZ_500=y karena palsu
             echo "CONFIG_CPU_FREQ=y" >> $DEFCONFIG
             echo "CONFIG_HIGH_RES_TIMERS=y" >> $DEFCONFIG
           fi
@@ -406,10 +405,6 @@ jobs:
         run: |
           echo "Applying fixes for Kingfinik98 kernel source..."
           
-          # --- PERBAIKAN ERROR BUILDFIX (KSU Undefined Symbols) ---
-          # Menghapus referensi fungsi yang hilang (undefined symbol) 
-          # agar sesuai dengan Wild KSU v2 / SUSFS patch yang digunakan
-          # Fix ini diterapkan ke SEMUA varian KSU (Next, Rissu, SukiSU, Wild)
           echo "🛠️ Fixing undefined KSU symbols (ksu_init_rc_hook, ksu_handle_sys_newfstatat)..."
           if [ -f fs/read_write.c ]; then
             sed -i '/ksu_init_rc_hook/d' fs/read_write.c
@@ -648,7 +643,7 @@ jobs:
 
           RELEASE_NOTES="🐧 *BoltX All-in-One Release*
           📅 *Build Date*: $(date +"%Y-%m-%d %H:%M:%S %Z")
-          🛡️ *Variants*: KernelSU-Next, Rissu, SukiSU, Wild KSU, Non-KSU
+          🛡️ *Variants*: SukiSU, KernelSU-Next, Rissu, Wild KSU, Non-KSU
           ⚙️ *Performance Tuning*: ${{ github.event.inputs.performance_patch }}
           🐚 *Clock Speed*: **500Hz (Global - Anti Lag)**
           🔰 *Compiler*: ${{ github.event.inputs.clang_version }}
