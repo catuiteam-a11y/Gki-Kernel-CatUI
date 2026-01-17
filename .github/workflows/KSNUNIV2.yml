@@ -362,11 +362,10 @@ jobs:
           git add .
           git commit -m "Final clean tree before build" || true
 
-      - name: Compile
-        working-directory: gki
+      - name: Clean staging to avoid symlink conflicts
         run: |
-          LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
-
+          rm -rf gki/out/android12-5.10/staging
+    
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         if: always()
