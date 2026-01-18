@@ -16,6 +16,14 @@ on:
         options:
           - 'RELEASE'
           - 'BETA'
+      clang_version:
+        description: 'Select Clang Version'
+        required: true
+        type: choice
+        options:
+          - 'r416183b (Clang 12)'
+          - 'r536225 (Clang 19)'
+          - 'r547379 (Clang 20)'
       hook_method:
         description: 'Select Hook Method'
         required: true
@@ -67,7 +75,7 @@ jobs:
           sudo apt install -y \
             git curl repo build-essential bc bison flex libssl-dev libelf-dev \
             python3 python3-pip unzip zip rsync libncurses-dev pahole cpio \
-            clang-18 lld-18 llvm-18 binutils-aarch64-linux-gnu ccache
+            lld binutils-aarch64-linux-gnu ccache
 
       - name: Init & Sync GKI source
         run: |
@@ -94,49 +102,40 @@ jobs:
           cp /tmp/qcom-cpufreq-hw.c "$TARGET"
           echo "Snapdragon qcom-cpufreq-hw performance patch applied"
 
-      - name: Tweak build config
-        run: |
-          sed -i '/check_defconfig/d' gki/common/build.config.gki || true
-
       - name: Setup KernelSU-Next & Hook Method
         working-directory: gki/common
         run: |
           set -e
-          # Clean old KernelSU
           rm -rf drivers/staging/kernelsu drivers/kernelsu KernelSU 2>/dev/null || true
 
-          # Install KernelSU-Next (using a currently active susfs-capable branch)
           curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
 
-          # Comment out strict Kprobes error if needed
           sed -i 's/$(error KSU requires Kprobes.*)/# &/' drivers/kernelsu/Kbuild || true
 
           HOOK_METHOD="${{ github.event.inputs.hook_method }}"
           if [ "$HOOK_METHOD" = "susfs" ]; then
-            echo "Cloning & patching susfs4ksu"
             git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android12-5.10 sus
             cp -r sus/kernel_patches/fs .
             cp -r sus/kernel_patches/include .
             cp sus/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch .
-            if ! patch -p1 --dry-run < 50_add_susfs_in_gki-android12-5.10.patch; then
-              echo "SUSFS patch would fail – aborting"
-              exit 1
-            fi
+            patch -p1 --dry-run < 50_add_susfs_in_gki-android12-5.10.patch || { echo "SUSFS patch dry-run failed"; exit 1; }
             patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
             sed -i '1i#include <linux/stat.h>' include/linux/susfs.h
-            echo "SUSFS patched successfully"
           fi
 
-      - name: Fix Stack Protector & Xiaomi compat patches
+      - name: Apply common fixes & configs
         working-directory: gki/common
         run: |
-          # Stack protector per-task → module
+          # Stack protector fix
           sed -i '/config STACKPROTECTOR_PER_TASK/{n;s/def_bool y/bool "Stack Protector per task"\n\tdefault y/;}' arch/arm64/Kconfig
           echo "# CONFIG_STACKPROTECTOR_PER_TASK is not set" >> arch/arm64/configs/gki_defconfig
 
-          # Xiaomi module/DRM fixes
+          # Xiaomi compat
           sed -i '/pr_warn.*disagrees about version of symbol.*/,+1 s/.*/return 1;/' kernel/module.c
           sed -i '/^static int drm_atomic_check_valid_clones/,/^}/d' drivers/gpu/drm/drm_atomic_helper.c
+
+          # Remove check_defconfig if present
+          sed -i '/check_defconfig/d' build.config.gki || true
 
       - name: Inject kernel configs
         working-directory: gki/common
@@ -146,19 +145,12 @@ jobs:
           PERFORMANCE_PATCH="${{ github.event.inputs.performance_patch }}"
 
           cat >> "$DEFCONFIG" << 'EOF'
-          # KernelSU-Next Base
           CONFIG_KSU=y
           CONFIG_KPM=y
           CONFIG_KPROBES=y
           CONFIG_KPROBE_EVENTS=y
-
-          # Networking & TCP
-          CONFIG_TCP_CONG_ADVANCED=y
           CONFIG_TCP_CONG_BBR=y
           CONFIG_DEFAULT_BBR=y
-          CONFIG_NET_SCH_FQ=y
-
-          # Storage / Misc
           CONFIG_TMPFS_XATTR=y
           CONFIG_TMPFS_POSIX_ACL=y
           CONFIG_ZRAM=y
@@ -170,13 +162,11 @@ jobs:
 
           if [ "$HOOK_METHOD" = "susfs" ]; then
             cat >> "$DEFCONFIG" << 'EOF'
-          # SUSFS (advanced hiding & features)
           CONFIG_KSU_SUSFS=y
           CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
           CONFIG_KSU_SUSFS_SUS_PATH=y
           CONFIG_KSU_SUSFS_SUS_MOUNT=y
           CONFIG_KSU_SUSFS_SUS_KSTAT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSTAT=y
           CONFIG_KSU_SUSFS_SPOOF_UNAME=y
           CONFIG_KSU_SUSFS_ENABLE_LOG=y
           CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
@@ -186,6 +176,34 @@ jobs:
           if [ "$PERFORMANCE_PATCH" = "MediaTek" ]; then
             echo "CONFIG_HZ=500" >> "$DEFCONFIG"
           fi
+
+      - name: Setup Clang (AOSP prebuilt)
+        working-directory: gki
+        run: |
+          set -e
+          mkdir -p prebuilts-master/clang/host/linux-x86
+          cd prebuilts-master/clang/host/linux-x86
+
+          if [ "${{ github.event.inputs.clang_version }}" == "r416183b (Clang 12)" ]; then
+            CLANG_VER="clang-r416183b"
+            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r416183b.tar.gz"
+          elif [ "${{ github.event.inputs.clang_version }}" == "r536225 (Clang 19)" ]; then
+            CLANG_VER="clang-r536225"
+            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz"
+          else
+            CLANG_VER="clang-r547379"
+            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz"
+          fi
+
+          echo "Downloading $CLANG_VER..."
+          curl -L --retry 5 --retry-delay 5 "$CLANG_URL" -o clang.tar.gz
+          tar -xzf clang.tar.gz
+          rm clang.tar.gz
+
+          ln -sf $CLANG_VER clang-r416183b || true
+
+          echo "CLANG_BIN_DIR=$(pwd)/$CLANG_VER/bin" >> $GITHUB_ENV
+          $(pwd)/$CLANG_VER/bin/clang --version
 
       - name: Set kernel version suffix
         working-directory: gki/common
@@ -197,14 +215,11 @@ jobs:
 
           sed -i "/^EXTRAVERSION *=/d" Makefile
           echo "EXTRAVERSION = $SUFFIX" >> Makefile
-          echo "Kernel suffix set to: $SUFFIX"
 
       - name: Compile kernel
         working-directory: gki
-        env:
-          CCACHE_DIR: ~/.cache/ccache
         run: |
-          export PATH="/usr/lib/llvm-18/bin:$PATH"
+          export PATH="${{ env.CLANG_BIN_DIR }}:$PATH"
           export CC="ccache clang"
           export LD="ccache ld.lld"
           export HOSTCC="ccache clang"
@@ -223,7 +238,6 @@ jobs:
           [ -z "$KERNEL_NAME" ] && KERNEL_NAME="BoltX"
 
           VARIANT="${{ github.event.inputs.hook_method == 'susfs' && 'SusFS' || 'Kprobes' }}"
-          STATUS="${{ github.event.inputs.release_status }}"
           BUILD_DATE=$(date +"%Y%m%d")
           RELEASE="v${BUILD_DATE}"
           AK3_ZIP_NAME="AK3-${KERNEL_NAME}-${RELEASE}-${BASE_LINUX_VERSION}-${VARIANT}.zip"
@@ -239,13 +253,12 @@ jobs:
           cd anykernel
 
           KERNEL_IMAGE="../out/android12-5.10/common/arch/arm64/boot/Image.lz4"
-          if [ ! -f "$KERNEL_IMAGE" ]; then echo "Image.lz4 missing"; exit 1; fi
+          [ -f "$KERNEL_IMAGE" ] || { echo "Image.lz4 not found"; exit 1; }
 
           cp "$KERNEL_IMAGE" Image.lz4
           zip -r9 "../${{ env.AK3_ZIP_NAME }}" ./*
-          echo "Created ${{ env.AK3_ZIP_NAME }}"
 
-      - name: Upload final kernel zip
+      - name: Upload kernel zip
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -254,7 +267,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload build log (on failure)
+      - name: Upload build log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
