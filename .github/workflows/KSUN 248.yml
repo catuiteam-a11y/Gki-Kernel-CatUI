@@ -1,5 +1,4 @@
 name: BoltX KSUN 248 STAGING
-
 on:
   workflow_dispatch:
     inputs:
@@ -21,6 +20,7 @@ on:
         required: true
         type: choice
         options:
+          - 'r416183b (Clang 12)'
           - 'r536225 (Clang 19)'
           - 'r547379 (Clang 20)'
       hook_method:
@@ -39,15 +39,12 @@ on:
         options:
           - 'Snapdragon'
           - 'MediaTek'
-
 permissions:
   contents: write
-
 jobs:
   build:
     name: Build Kernel
     runs-on: ubuntu-22.04
-
     steps:
       - name: Free disk space
         uses: easimon/maximize-build-space@master
@@ -59,27 +56,22 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
           remove-docker-images: 'true'
-
       - name: Checkout Repository
         uses: actions/checkout@v4
-
       - name: Configure Git
         run: |
           git config --global user.name "titit"
           git config --global user.email "Kingfinik98@gmail.com"
-
       - name: Install build tools
         run: |
           sudo apt update && sudo apt upgrade -y
           sudo apt install -y git curl repo build-essential bc bison flex libssl-dev \
             libelf-dev python3 python3-pip unzip zip rsync libncurses-dev lld
-
       - name: Init & Sync GKI
         run: |
           mkdir gki && cd gki
           repo init -u https://android.googlesource.com/kernel/manifest -b common-android12-5.10 --depth=1
           repo sync -c --no-tags --no-clone-bundle --optimized-fetch -j$(nproc --all)
-
       - name: Update kernel source for GKI 5.10
         run: |
           cd gki/common
@@ -88,7 +80,6 @@ jobs:
           git checkout -b update-android12-5.10-staging rama/android12-5.10-staging
           # Setup KernelSU-KowSU
           rm -rf drivers/staging/kernelsu
-
       - name: Apply Snapdragon Performance Patch
         if: github.event.inputs.performance_patch == 'Snapdragon'
         working-directory: gki/common
@@ -104,18 +95,15 @@ jobs:
           grep -q "qcom_cpufreq_hw" /tmp/qcom-cpufreq-hw.c || exit 1
           cp /tmp/qcom-cpufreq-hw.c "$TARGET"
           echo "✅ [Snapdragon] Qualcomm CPUFreq HW performance patch applied."
-
       - name: Apply MediaTek Performance Tuning
         if: github.event.inputs.performance_patch == 'MediaTek'
         working-directory: gki/common
         run: |
           echo "🚀 [MediaTek] Applying performance tuning via defconfig (HZ=500)."
           echo "✅ [MediaTek] Tuning will be applied in the 'Inject All Kernel Configs' step."
-
       - name: Tweak build config
         run: |
           sed -i '2d' gki/common/build.config.gki
-
       - name: Setup KernelSU-Next & Hook Method
         working-directory: gki/common
         run: |
@@ -152,12 +140,10 @@ jobs:
             echo "➡️ Menggunakan metode Kprobes Hook"
             echo "✅ Kprobes setup selesai"
           fi
-
       - name: Apply common fixes
         working-directory: gki/common
         run: |
-          echo "Applying fixes for Kingfinik98 kernel source..."
-
+          echo "Applying fixes..."
       - name: Fix Stack Protector
         working-directory: gki/common
         run: |
@@ -165,7 +151,6 @@ jobs:
           sed -i '/config STACKPROTECTOR_PER_TASK/{n;s/def_bool y/bool "Stack Protector per task"\n\tdefault y/;}' arch/arm64/Kconfig
           echo "# CONFIG_STACKPROTECTOR_PER_TASK is not set" >> arch/arm64/configs/gki_defconfig
           echo "✅ Stack Protector fix applied manually."
-
       - name: Patch module & DRM (Xiaomi Compat)
         working-directory: gki/common
         run: |
@@ -174,12 +159,10 @@ jobs:
           sed -i '/^static int drm_atomic_check_valid_clones/,/^}/d' drivers/gpu/drm/drm_atomic_helper.c
           sed -i '/ret = drm_atomic_check_valid_clones/,/return ret;/d' drivers/gpu/drm/drm_atomic_helper.c
           echo "✅ Perbaikan selesai"
-
       - name: Remove check_defconfig
         run: |
           echo "🧹 [Clean-Up] Deleting check_defconfig"
           sed -i 's/check_defconfig//' gki/common/build.config.gki
-
       - name: Inject All Kernel Configs
         working-directory: gki/common
         run: |
@@ -261,7 +244,6 @@ jobs:
           CONFIG_ZRAM=y
           CONFIG_ZRAM_WRITEBACK=y
           EOF
-
       - name: Set version
         working-directory: gki/common
         run: |
@@ -270,38 +252,39 @@ jobs:
           KERNEL_NAME_INPUT="${{ github.event.inputs.kernel_name }}"
           HOOK_METHOD="${{ github.event.inputs.hook_method }}"
           PERFORMANCE_PATCH="${{ github.event.inputs.performance_patch }}"
-
-          # --- PERUBAHAN UTAMA: MEMBANGUN VERSI SESUAI CONTOH ---
           SUFFIX=""
           if [ -n "$KERNEL_NAME_INPUT" ]; then
             SUFFIX="-$KERNEL_NAME_INPUT"
           fi
-
           if [ "$HOOK_METHOD" = "susfs" ]; then
             SUFFIX="$SUFFIX-ඞ-SuS"
           fi
-
           if [ "$PERFORMANCE_PATCH" = "Snapdragon" ]; then
             SUFFIX="$SUFFIX-Qcom"
           else
             SUFFIX="$SUFFIX-Mtk"
           fi
-          
+         
           echo "Setting custom kernel name: $SUFFIX"
           if grep -q '^EXTRAVERSION *=' Makefile; then
             sed -i "s/^EXTRAVERSION *=.*/EXTRAVERSION = $SUFFIX/" Makefile
           else
             echo "EXTRAVERSION = $SUFFIX" >> Makefile
           fi
-
       - name: Setup Clang
         working-directory: gki
         run: |
           mkdir -p prebuilts-master/clang/host/linux-x86
-          if [ "${{ github.event.inputs.clang_version }}" == "r536225 (Clang 19)" ]; then
+          if [ "${{ github.event.inputs.clang_version }}" == "r416183b (Clang 12)" ]; then
+            echo "Setting up Clang-12 (r416183b)..."
+            CLANG_VER="clang-r416183b"
+            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r416183b.tar.gz"
+          elif [ "${{ github.event.inputs.clang_version }}" == "r536225 (Clang 19)" ]; then
+            echo "Setting up Clang-19 (r536225)..."
             CLANG_VER="clang-r536225"
             CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel-2025/clang-r536225.tar.gz"
           else
+            echo "Setting up Clang-20 (r547379)..."
             CLANG_VER="clang-r547379"
             CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/62cdcefa89e31af2d72c366e8b5ef8db84caea62/clang-r547379.tar.gz"
           fi
@@ -309,56 +292,47 @@ jobs:
           mkdir -p prebuilts-master/clang/host/linux-x86/$CLANG_VER
           cd prebuilts-master/clang/host/linux-x86
           curl -L "${CLANG_URL}" | tar -xz -C $CLANG_VER
-          rm -rf clang-r563880b
-          ln -sf $CLANG_VER clang-r563880b
-
+          # Use consistent symlink name (many kernels expect clang-r416183b as base)
+          rm -rf clang-r416183b
+          ln -sf $CLANG_VER clang-r416183b
       - name: Commit changes
         working-directory: gki/common
         run: |
           git add .
           git commit -m "Final clean tree before build" || true
-
       - name: Compile
         working-directory: gki
         run: |
           LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
-
       - name: Setup Environment Variables for Packaging
         id: vars
         run: |
-          # Ambil versi DASAR kernel
           BASE_LINUX_VERSION=$(make -s kernelversion -C gki/common | tr -d '\n\r')
           echo "BASE_LINUX_VERSION=$BASE_LINUX_VERSION" >> $GITHUB_ENV
-          
-          # Ambil versi LENGKAP kernel (dengan suffix)
+         
           LINUX_VERSION=$(make -s kernelversion -C gki/common | tr -d '\n\r')
           echo "LINUX_VERSION=$LINUX_VERSION" >> $GITHUB_ENV
-          
+         
           CUSTOM_KERNEL_NAME="${{ github.event.inputs.kernel_name }}"
           if [ -z "$CUSTOM_KERNEL_NAME" ]; then
             KERNEL_NAME="BoltX"
           else
             KERNEL_NAME="$CUSTOM_KERNEL_NAME"
           fi
-
           HOOK_METHOD="${{ github.event.inputs.hook_method }}"
           STATUS="${{ github.event.inputs.release_status }}"
           CLANG_VERSION_STRING="${{ github.event.inputs.clang_version }}"
-
-          # Tentukan nama Varian untuk nama file zip
           if [ "$HOOK_METHOD" = "susfs" ]; then
             VARIANT="SusFS"
           else
             VARIANT="Kprobes"
           fi
-
           BUILD_DATE=$(date +"%Y%m%d")
           KBUILD_BUILD_TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S %Z")
           RELEASE="v${BUILD_DATE}"
-          
-          # --- PERUBAHAN NAMA FILE ZIP LEBIH RAPI ---
+         
           AK3_ZIP_NAME="AK3-${KERNEL_NAME}-${RELEASE}-${BASE_LINUX_VERSION}-${VARIANT}.zip"
-          
+         
           echo "KERNEL_NAME=$KERNEL_NAME" >> $GITHUB_ENV
           echo "VARIANT=$VARIANT" >> $GITHUB_ENV
           echo "STATUS=$STATUS" >> $GITHUB_ENV
@@ -368,7 +342,6 @@ jobs:
           echo "KSU=KernelSU-Next" >> $GITHUB_ENV
           echo "SUSFS_VERSION=$(curl -s https://gitlab.com/simonpunk/susfs4ksu/raw/gki-android12-5.10/kernel_patches/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g')" >> $GITHUB_ENV
           echo "COMPILER_STRING=$CLANG_VERSION_STRING" >> $GITHUB_ENV
-
       - name: Package Kernel (AnyKernel3)
         run: |
           echo "🚀 Starting kernel packaging process..."
@@ -377,23 +350,20 @@ jobs:
           KERNEL_IMAGE="$GITHUB_WORKSPACE/gki/out/android12-5.10/dist/Image"
           echo "🔽 Cloning anykernel from $ANYKERNEL_REPO"
           git clone -q --depth=1 $ANYKERNEL_REPO -b $ANYKERNEL_BRANCH anykernel
-          
-          # --- PERUBAHAN: GUNAKAN VERSI LENGKAP UNTUK KERNEL STRING ---
+         
           KERNEL_STRING="${{ env.LINUX_VERSION }}"
           sed -i "s|kernel.string=.*|kernel.string=$KERNEL_STRING|g" anykernel/anykernel.sh
-
           cd anykernel
           echo "🗜️ Zipping anykernel..."
           cp "$KERNEL_IMAGE" .
           zip -r9 ../${{ env.AK3_ZIP_NAME }} ./*
           cd ..
           echo "✅ Zip file created: ${{ env.AK3_ZIP_NAME }}"
-
-      - name: Create GitHub Release
+      - name: Create GitHub Release & Upload Zip
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          echo "🚀 Creating GitHub Release..."
+          echo "🚀 Creating GitHub Release in separate repo..."
           GKI_RELEASES_REPO="https://github.com/Kingfinik98/Kernel-Release"
           REPO_PATH=$(echo "$GKI_RELEASES_REPO" | sed 's|https://github.com/||')
           RELEASE_TAG="${{ env.KERNEL_NAME }}-${{ env.LINUX_VERSION }}-${{ env.RELEASE }}"
@@ -402,14 +372,14 @@ jobs:
           📛 *KernelSU*: ${{ env.KSU }}
           ඞ *SuSFS*: ${{ env.SUSFS_VERSION }}
           🔰 *Compiler*: ${{ env.COMPILER_STRING }}
-          🔗 *Hook Method*: ${{ env.HOOK_METHOD }}"
+          🔗 *Hook Method*: ${{ env.HOOK_METHOD }}
+          ⚙️ *Status*: ${{ env.STATUS }}"
           gh release create "$RELEASE_TAG" "${{ env.AK3_ZIP_NAME }}" \
             --title "$RELEASE_TAG" \
             --notes "$RELEASE_NOTES" \
             --repo "$REPO_PATH" \
             --latest
-          echo "✅ Release created successfully at https://github.com/$REPO_PATH/releases/tag/$RELEASE_TAG"
-
+          echo "✅ Release created & zip uploaded: https://github.com/$REPO_PATH/releases/tag/$RELEASE_TAG"
       - name: Upload Build Log
         if: always()
         uses: actions/upload-artifact@v4
