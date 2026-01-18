@@ -292,7 +292,6 @@ jobs:
           mkdir -p prebuilts-master/clang/host/linux-x86/$CLANG_VER
           cd prebuilts-master/clang/host/linux-x86
           curl -L "${CLANG_URL}" | tar -xz -C $CLANG_VER
-          # Use consistent symlink name (many kernels expect clang-r416183b as base)
           rm -rf clang-r416183b
           ln -sf $CLANG_VER clang-r416183b
       - name: Commit changes
@@ -359,27 +358,14 @@ jobs:
           zip -r9 ../${{ env.AK3_ZIP_NAME }} ./*
           cd ..
           echo "✅ Zip file created: ${{ env.AK3_ZIP_NAME }}"
-      - name: Create GitHub Release & Upload Zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          echo "🚀 Creating GitHub Release in separate repo..."
-          GKI_RELEASES_REPO="https://github.com/Kingfinik98/Kernel-Release"
-          REPO_PATH=$(echo "$GKI_RELEASES_REPO" | sed 's|https://github.com/||')
-          RELEASE_TAG="${{ env.KERNEL_NAME }}-${{ env.LINUX_VERSION }}-${{ env.RELEASE }}"
-          RELEASE_NOTES="🐧 *Linux Version*: ${{ env.LINUX_VERSION }}
-          📅 *Build Date*: ${{ env.KBUILD_BUILD_TIMESTAMP }}
-          📛 *KernelSU*: ${{ env.KSU }}
-          ඞ *SuSFS*: ${{ env.SUSFS_VERSION }}
-          🔰 *Compiler*: ${{ env.COMPILER_STRING }}
-          🔗 *Hook Method*: ${{ env.HOOK_METHOD }}
-          ⚙️ *Status*: ${{ env.STATUS }}"
-          gh release create "$RELEASE_TAG" "${{ env.AK3_ZIP_NAME }}" \
-            --title "$RELEASE_TAG" \
-            --notes "$RELEASE_NOTES" \
-            --repo "$REPO_PATH" \
-            --latest
-          echo "✅ Release created & zip uploaded: https://github.com/$REPO_PATH/releases/tag/$RELEASE_TAG"
+      - name: Upload Kernel Zip as Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.AK3_ZIP_NAME }}
+          path: ${{ env.AK3_ZIP_NAME }}
+          if-no-files-found: warn
+          retention-days: 14   # optional: keep for 2 weeks (adjust as needed)
       - name: Upload Build Log
         if: always()
         uses: actions/upload-artifact@v4
