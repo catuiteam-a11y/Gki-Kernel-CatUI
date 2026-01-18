@@ -305,32 +305,42 @@ jobs:
           else
              echo "Kernel name input is empty. Skipping custom name (Using Default)."
           fi
-      - name: Setup Clang
-        working-directory: gki
-        run: |
-          mkdir -p prebuilts-master/clang/host/linux-x86
-         
-          if [ "${{ github.event.inputs.clang_version }}" == "r416183b (Clang 12)" ]; then
-            echo "Setting up Clang-12 (r416183b)..."
-            CLANG_VER="clang-r416183b"
-            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r416183b.tar.gz"
-          elif [ "${{ github.event.inputs.clang_version }}" == "r536225 (Clang 19)" ]; then
-            echo "Setting up Clang-19 (r536225)..."
-            CLANG_VER="clang-r536225"
-            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel-2025/clang-r536225.tar.gz"
-          else
-            echo "Setting up Clang-20 (r547379)..."
-            CLANG_VER="clang-r547379"
-            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/62cdcefa89e31af2d72c366e8b5ef8db84caea62/clang-r547379.tar.gz"
-          fi
-         
-          echo "CLANG_VER=$CLANG_VER" >> $GITHUB_ENV
-          mkdir -p prebuilts-master/clang/host/linux-x86/$CLANG_VER
-          cd prebuilts-master/clang/host/linux-x86
-          curl -L "${CLANG_URL}" | tar -xz -C $CLANG_VER
-         
-          rm -rf clang-r416183b
-          ln -sf $CLANG_VER clang-r416183b
+            - name: Setup Clang
+              working-directory: gki
+              run: |
+                mkdir -p prebuilts-master/clang/host/linux-x86
+          
+                if [ "${{ github.event.inputs.clang_version }}" == "r416183b (Clang 12)" ]; then
+                echo "Setting up Clang-12 (r416183b)..."
+                CLANG_VER="clang-r416183b"
+                # Correct URL using the actual commit hash for r416183b
+                CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/bd96dfe349c962681f0e5388af874c771ef96670/clang-r416183b.tar.gz"
+                elif [ "${{ github.event.inputs.clang_version }}" == "r536225 (Clang 19)" ]; then
+                echo "Setting up Clang-19 (r536225)..."
+                CLANG_VER="clang-r536225"
+                CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel-2025/clang-r536225.tar.gz"
+              else
+                echo "Setting up Clang-20 (r547379)..."
+                CLANG_VER="clang-r547379"
+                CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/62cdcefa89e31af2d72c366e8b5ef8db84caea62/clang-r547379.tar.gz"
+              fi
+          
+                echo "CLANG_VER=$CLANG_VER" >> $GITHUB_ENV
+                mkdir -p prebuilts-master/clang/host/linux-x86/$CLANG_VER
+                cd prebuilts-master/clang/host/linux-x86
+          
+                echo "Downloading from: $CLANG_URL"
+                curl -L "${CLANG_URL}" -o clang.tar.gz
+          
+                # Add debug: check file type/size before extracting
+                file clang.tar.gz
+                ls -lh clang.tar.gz
+          
+                tar -xzf clang.tar.gz -C $CLANG_VER
+          
+                # Clean up and symlink (standard AOSP-style symlink for kernel builds)
+                rm -f clang-r416183b  # remove old if exists
+                ln -sf $CLANG_VER clang-r416183b
       - name: Commit changes
         working-directory: gki/common
         run: |
