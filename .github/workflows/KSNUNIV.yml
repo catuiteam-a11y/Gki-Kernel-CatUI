@@ -272,39 +272,53 @@ jobs:
           CONFIG_ZRAM=y
           CONFIG_ZRAM_WRITEBACK=y
           EOF
-      - name: Set version
-        working-directory: gki/common
-        run: |
+            - name: Set version
+              working-directory: gki/common
+              run: |
           echo "" > scripts/setlocalversion
           chmod +x scripts/setlocalversion
-         
-          KERNEL_NAME="${{ github.event.inputs.kernel_name }}"
+
+          KERNEL_NAME_INPUT="${{ github.event.inputs.kernel_name }}"
           HOOK_METHOD="${{ github.event.inputs.hook_method }}"
           PERFORMANCE_PATCH="${{ github.event.inputs.performance_patch }}"
-          if [ -n "$KERNEL_NAME" ]; then
-            # Construct the suffix
-            SUFFIX=""
-            if [ "$HOOK_METHOD" = "susfs" ]; then
-              SUFFIX="-SUSFS"
-            else
-              SUFFIX="-KPROBES"
-            fi
-           
-            if [ "$PERFORMANCE_PATCH" = "Snapdragon" ]; then
-              SUFFIX="${SUFFIX}-SNAPDRAGON"
-            else
-              SUFFIX="${SUFFIX}-MEDIATEK"
-            fi
-           
-            echo "Setting custom kernel name: $KERNEL_NAME$SUFFIX"
-            if grep -q '^EXTRAVERSION *=' Makefile; then
-              sed -i "s/^EXTRAVERSION *=.*/EXTRAVERSION = -$KERNEL_NAME$SUFFIX/" Makefile
-            else
-              echo "EXTRAVERSION = -$KERNEL_NAME$SUFFIX" >> Makefile
-            fi
-          else
-             echo "Kernel name input is empty. Skipping custom name (Using Default)."
+
+          # Build suffix parts without leading dash initially
+          SUFFIX_PARTS=()
+
+          if [ -n "$KERNEL_NAME_INPUT" ]; then
+            SUFFIX_PARTS+=("$KERNEL_NAME_INPUT")
           fi
+
+          if [ "$HOOK_METHOD" = "susfs" ]; then
+            SUFFIX_PARTS+=("ඞ-SuS")
+          else
+            SUFFIX_PARTS+=("KPROBES")  # optional: make it explicit
+          fi
+
+          if [ "$PERFORMANCE_PATCH" = "Snapdragon" ]; then
+            SUFFIX_PARTS+=("Qcom")
+          else
+            SUFFIX_PARTS+=("Mtk")
+          fi
+
+          # Join with - (no leading/trailing dash issues)
+          if [ ${#SUFFIX_PARTS[@]} -gt 0 ]; then
+            SUFFIX=$(IFS=- ; echo "${SUFFIX_PARTS[*]}")
+            SUFFIX="-$SUFFIX"  # final leading dash for EXTRAVERSION
+          else
+            SUFFIX=""
+          fi
+
+          echo "Setting custom kernel name suffix: $SUFFIX"
+
+          if grep -q '^EXTRAVERSION *=' Makefile; then
+            sed -i "s/^EXTRAVERSION *=.*/EXTRAVERSION = $SUFFIX/" Makefile
+          else
+            echo "EXTRAVERSION = $SUFFIX" >> Makefile
+          fi
+
+          # Optional: show what got written
+          grep '^EXTRAVERSION' Makefile || echo "No EXTRAVERSION line found"
             - name: Setup Clang
               working-directory: gki
               run: |
